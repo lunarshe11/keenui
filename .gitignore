@@ -1,0 +1,17 @@
+# OS
+.DS_Store
+Thumbs.db
+*.swp
+*~
+
+# IDE
+.vscode/
+.idea/
+
+# Sensitive
+files/lighttpd/lighttpd.user
+*.log
+
+# Build
+node_modules/
+*.bak
