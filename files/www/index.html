@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Keen UI</title>
+<link rel="icon" href="/img/favicon.svg" type="image/svg+xml">
+<link rel="manifest" href="/manifest.json">
+<meta name="theme-color" content="#0e1116">
+<link rel="stylesheet" href="/css/style.css?v=30">
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">
+    <img src="/img/logo.svg" alt="Keen">
+    <span>Keen UI</span>
+  </div>
+  <nav class="tabs">
+    <button class="tab active" data-tab="dashboard">Дашборд</button>
+    <button class="tab" data-tab="system">Система</button>
+    <button class="tab" data-tab="keen">Keen</button>
+    <button class="tab" data-tab="wifi">WiFi</button>
+    <button class="tab" data-tab="network">Сеть</button>
+    <button class="tab" data-tab="clients">Клиенты</button>
+    <button class="tab" data-tab="components">Компоненты</button>
+    <button class="tab" data-tab="files">Файлы</button>
+    <button class="tab" data-tab="tools">Инструменты</button>
+    <a class="tab tab-link" id="orig-link" href="/" target="_blank">Оригинал ↗</a>
+  </nav>
+</header>
+
+<main class="content">
+
+  <section id="tab-dashboard" class="tab-panel active">
+    <h1>Обзор <span id="dash-updated" style="font-size:12px;color:var(--fg-dim);font-weight:400"></span></h1>
+    <div class="grid" id="dash-grid"></div>
+  </section>
+
+  <section id="tab-system" class="tab-panel">
+    <h1>Система</h1>
+    <div class="grid" id="sys-grid"></div>
+    <div class="toolbar" style="margin-top:16px">
+      <button id="sys-refresh">Обновить</button>
+      <button id="sys-reboot" class="danger">Перезагрузить роутер</button>
+    </div>
+  </section>
+
