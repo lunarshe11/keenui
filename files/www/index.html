@@ -46,3 +46,110 @@
     </div>
   </section>
 
+  <section id="tab-keen" class="tab-panel">
+    <h1>Keen</h1>
+    <nav class="subtabs">
+      <button class="subtab active" data-sub="vnstat">vnstat</button>
+      <button class="subtab" data-sub="darkstat">darkstat</button>
+      <button class="subtab" data-sub="cron">cron</button>
+    </nav>
+    <div id="sub-vnstat" class="subpanel active">
+      <div class="toolbar">
+        <button id="vnstat-summary">Сводка</button>
+        <button id="vnstat-hours">Часы</button>
+        <button id="vnstat-days">Дни</button>
+        <button id="vnstat-months">Месяцы</button>
+        <button id="vnstat-top">Топ</button>
+        <button id="vnstat-refresh">Обновить</button>
+      </div>
+      <img id="vnstat-img" src="/img/vnstat-live.png" alt="vnstat" style="max-width:100%;border-radius:8px;background:#fff;margin-bottom:12px">
+      <pre class="json" id="vnstat-json">загрузка...</pre>
+    </div>
+    <div id="sub-darkstat" class="subpanel">
+      <div class="toolbar">
+        <button id="darkstat-refresh">Обновить</button>
+        <span id="darkstat-status-badge" class="badge">—</span>
+        <span style="color:var(--fg-dim);font-size:12px">авто: <span id="darkstat-timer">10</span>с</span>
+      </div>
+      <div class="grid" id="darkstat-overview"></div>
+      <h2 class="h2">Хосты</h2>
+      <div class="table-wrap">
+        <table class="data-table" id="darkstat-hosts">
+          <thead><tr><th>IP</th><th>MAC</th><th>In</th><th>Out</th><th>Total</th><th>Last seen</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+    <div id="sub-cron" class="subpanel">
+      <div class="toolbar">
+        <button id="cron-refresh">Обновить</button>
+        <button id="cron-add-btn" class="ok">+ Добавить</button>
+      </div>
+      <div class="table-wrap">
+        <table class="data-table" id="cron-table">
+          <thead><tr><th>Расписание</th><th>Пользователь</th><th>Команда</th><th></th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <section id="tab-wifi" class="tab-panel">
+    <h1>WiFi</h1>
+    <div class="toolbar"><button id="wifi-refresh">Обновить</button></div>
+    <div class="grid" id="wifi-grid"></div>
+  </section>
+
+  <section id="tab-network" class="tab-panel">
+    <h1>Сеть</h1>
+    <nav class="subtabs">
+      <button class="subtab active" data-sub="dns">DNS</button>
+      <button class="subtab" data-sub="dhcp">DHCP</button>
+      <button class="subtab" data-sub="nextdns">NextDNS</button>
+    </nav>
+    <div id="sub-dns" class="subpanel active">
+      <div class="toolbar">
+        <button id="dns-refresh">Обновить</button>
+        <input id="dns-new" placeholder="8.8.8.8" style="max-width:200px">
+        <button id="dns-add-btn" class="ok">+ Добавить DNS</button>
+      </div>
+      <div class="table-wrap">
+        <table class="data-table" id="dns-table">
+          <thead><tr><th>DNS-сервер</th><th>Источник</th><th>Тип</th><th>Действие</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+    <div id="sub-dhcp" class="subpanel">
+      <div class="toolbar"><button id="dhcp-refresh">Обновить</button></div>
+      <div class="table-wrap">
+        <table class="data-table" id="dhcp-table">
+          <thead><tr><th>Профиль</th><th>Интерфейс</th><th>Сеть</th><th>Диапазон</th><th>Шлюз</th><th>Lease</th><th>Статус</th><th>Исп.</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+    <div id="sub-nextdns" class="subpanel">
+      <div class="toolbar">
+        <button id="nextdns-refresh">Обновить</button>
+        <span id="nextdns-status" class="badge">—</span>
+        <button id="nextdns-toggle" class="danger">—</button>
+      </div>
+      <div class="grid" id="nextdns-cards"></div>
+      <h2 class="h2">Профили в системе</h2>
+      <div class="table-wrap">
+        <table class="data-table" id="nextdns-profiles">
+          <thead><tr><th>Имя</th><th>Token</th><th>Ссылка</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+      <h2 class="h2">Привязки MAC → профиль</h2>
+      <div class="table-wrap">
+        <table class="data-table" id="nextdns-bindings">
+          <thead><tr><th>MAC</th><th>Профиль</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
