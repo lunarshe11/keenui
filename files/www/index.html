@@ -153,3 +153,52 @@
     </div>
   </section>
 
+  <section id="tab-clients" class="tab-panel">
+    <h1>Клиенты</h1>
+    <div class="toolbar">
+      <button id="clients-refresh">Обновить</button>
+      <input id="clients-search" placeholder="Поиск по IP / MAC / имени" style="max-width:300px">
+    </div>
+    <div class="table-wrap">
+      <table class="data-table" id="clients-table">
+        <thead><tr><th>IP</th><th>Имя</th><th>MAC</th><th>Статус</th><th>Трафик</th><th>Last seen</th><th>Действия</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section id="tab-components" class="tab-panel">
+    <h1>Компоненты</h1>
+    <div class="toolbar">
+      <button id="comp-refresh">Обновить</button>
+      <span id="comp-info" class="badge info">—</span>
+    </div>
+    <div class="table-wrap">
+      <table class="data-table" id="comp-table">
+        <thead><tr><th>Компонент</th><th>Описание</th><th>Версия</th><th>Статус</th><th>Действие</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section id="tab-files" class="tab-panel">
+    <h1>Файлы</h1>
+    <nav class="subtabs">
+      <button class="subtab active" data-sub="usb">USB</button>
+      <button class="subtab" data-sub="browse">Проводник</button>
+    </nav>
+    <div id="sub-usb" class="subpanel active">
+      <div class="toolbar"><button id="usb-refresh">Обновить</button></div>
+      <div class="grid" id="usb-grid"></div>
+    </div>
+    <div id="sub-browse" class="subpanel">
+      <div class="breadcrumb" id="browse-breadcrumb"></div>
+      <div class="table-wrap">
+        <table class="data-table" id="browse-table">
+          <thead><tr><th>Имя</th><th>Тип</th><th>Размер</th><th>Права</th><th>Действия</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
