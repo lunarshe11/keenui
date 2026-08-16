@@ -202,3 +202,82 @@
     </div>
   </section>
 
+  <section id="tab-tools" class="tab-panel">
+    <h1>Инструменты</h1>
+    <nav class="subtabs">
+      <button class="subtab active" data-sub="rci">RCI-консоль</button>
+      <button class="subtab" data-sub="logs">Логи</button>
+    </nav>
+
+    <div id="sub-rci" class="subpanel active">
+      <p style="color:var(--fg-dim);font-size:13px;margin-bottom:12px">
+        Введите RCI-команду (например <code>show version</code>, <code>show interface</code>, <code>ip route</code>). Ответ — JSON.
+      </p>
+      <div class="toolbar">
+        <input id="rci-input" placeholder="show version" style="flex:1">
+        <button id="rci-send" class="ok">Отправить</button>
+        <button id="rci-clear">Очистить</button>
+      </div>
+      <div class="toolbar" style="margin-bottom:8px">
+        <span style="color:var(--fg-dim);font-size:12px">Быстрые:</span>
+        <button class="btn-sm" data-rci="show version">show version</button>
+        <button class="btn-sm" data-rci="show system">show system</button>
+        <button class="btn-sm" data-rci="show interface">show interface</button>
+        <button class="btn-sm" data-rci="show ip route">show ip route</button>
+        <button class="btn-sm" data-rci="show ip hotspot host">clients</button>
+        <button class="btn-sm" data-rci="show components">components</button>
+        <button class="btn-sm" data-rci="show running-config">running-config</button>
+      </div>
+      <pre class="console-log" id="rci-output">—</pre>
+    </div>
+
+    <div id="sub-logs" class="subpanel">
+      <div class="toolbar">
+        <button id="logs-refresh">Обновить</button>
+        <select id="logs-select" style="max-width:300px"></select>
+        <span id="logs-count" class="badge info">0</span>
+      </div>
+      <pre class="console-log" id="logs-output">—</pre>
+    </div>
+  </section>
+
+</main>
+
+
+<div class="modal-bg" id="pwd-modal">
+  <div class="modal">
+    <h3>⚠️ Смените стандартный пароль</h3>
+    <p style="color:var(--fg-dim);margin-bottom:16px;font-size:13px">
+      Вы используете стандартный пароль <code>keenui</code>. Это небезопасно — любой в сети может получить доступ к роутеру.
+    </p>
+    <div class="form-row">
+      <div>
+        <label>Новый пароль (мин. 8 символов)</label>
+        <input id="pwd-new" type="password" placeholder="••••••••">
+      </div>
+    </div>
+    <div class="form-row">
+      <div>
+        <label>Повторите пароль</label>
+        <input id="pwd-confirm" type="password" placeholder="••••••••">
+      </div>
+    </div>
+    <div id="pwd-error" class="alert err" style="display:none"></div>
+    <div style="display:flex;gap:8px;margin-top:16px;flex-wrap:wrap">
+      <button id="pwd-save" class="ok">Сменить пароль</button>
+      <button id="pwd-skip">Позже</button>
+    </div>
+    <p style="color:var(--fg-dim);font-size:11px;margin-top:12px">
+      Логин останется <code>admin</code>. После смены браузер попросит войти заново.
+    </p>
+  </div>
+</div>
+
+<script src="/js/app.js?v=30"></script>
+<script>
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('/sw.js').catch(()=>{});
+}
+</script>
+</body>
+</html>
