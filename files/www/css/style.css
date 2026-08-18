@@ -92,3 +92,24 @@ textarea{font-family:ui-monospace,monospace;min-height:100px;resize:vertical}
   padding:12px;border-radius:6px;overflow:auto;max-height:60vh;
   white-space:pre-wrap;word-break:break-word;border:1px solid var(--border)}
 
+/* Мобильная адаптация вкладок */
+@media(max-width:700px){
+  .topbar{padding:6px 10px;gap:8px}
+  .brand{font-size:13px}
+  .brand img{width:22px;height:22px}
+  .tab{padding:6px 10px;font-size:13px}
+  .content{padding:12px}
+  h1{font-size:18px}
+  .grid{grid-template-columns:1fr 1fr;gap:8px}
+  .card{padding:12px}
+  .card-value{font-size:16px}
+  .data-table{font-size:12px}
+  .data-table th,.data-table td{padding:7px 8px}
+}
+
+/* Индикатор что можно скроллить */
+.tabs::after{content:'';flex-shrink:0;width:8px}
+
+/* Тонкая полоса скролла для десктопа — на случай если мышь без колеса */
+.tabs:hover{scrollbar-width:thin}
+
