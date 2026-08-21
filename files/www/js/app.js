@@ -106,3 +106,52 @@ async function loadSys(){
 $('sys-refresh').onclick=loadSys;
 $('sys-reboot').onclick=async()=>{if(confirm('Перезагрузить роутер?')){await API('parse','system reboot');alert('Перезагрузка запущена')}};
 
+// === vnstat ===
+async function loadVn(){$('vnstat-json').textContent='загрузка...';$('vnstat-json').textContent=await API('vnstat-oneline');loadVnMode('s')}
+async function loadVnMode(m){try{const d=JSON.parse(await API('vnstati',m));if(d.url)$('vnstat-img').src=d.url}catch{}}
+$('vnstat-refresh').onclick=loadVn;
+$('vnstat-summary').onclick=()=>loadVnMode('s');
+$('vnstat-hours').onclick=()=>loadVnMode('h');
+$('vnstat-days').onclick=()=>loadVnMode('d');
+$('vnstat-months').onclick=()=>loadVnMode('m');
+$('vnstat-top').onclick=()=>loadVnMode('t');
+
+// === darkstat ===
+async function loadDark(){
+  try{const s=JSON.parse(await API('darkstat-status'));const b=$('darkstat-status-badge');b.textContent=s.status;b.className='badge '+(s.status==='running'?'ok':'err')}catch{}
+  try{const o=JSON.parse(await API('darkstat-overview'));
+    $('darkstat-overview').innerHTML=[
+      ['Uptime',o.uptime],['Трафик',fmtBytes(o.bytes)],['Пакетов',(o.packets||0).toLocaleString()],
+      ['Captured',(o.captured||0).toLocaleString()],['Dropped',(o.dropped||0).toLocaleString()],['Since',o.since]
+    ].map(([t,x])=>`<div class="card"><div class="card-title">${t}</div><div class="card-value">${esc(x)}</div></div>`).join('');
+  }catch(e){$('darkstat-overview').innerHTML=`<div class="card"><div class="card-value err">${esc(e.message)}</div></div>`}
+  try{const h=JSON.parse(await API('darkstat-hosts'));
+    $('darkstat-hosts').querySelector('tbody').innerHTML=h.map(x=>`<tr><td>${esc(x.ip)}</td><td>${esc(x.mac)}</td><td class="num">${fmtBytes(x.in)}</td><td class="num">${fmtBytes(x.out)}</td><td class="num">${fmtBytes(x.total)}</td><td>${esc(x.last)}</td></tr>`).join('');
+  }catch(e){$('darkstat-hosts').querySelector('tbody').innerHTML=`<tr><td colspan="6" class="err">${esc(e.message)}</td></tr>`}
+}
+$('darkstat-refresh').onclick=loadDark;
+
+// === cron ===
+async function loadCron(){
+  const tb=$('cron-table').querySelector('tbody');
+  tb.innerHTML='<tr><td colspan="4"><div class="spinner"></div></td></tr>';
+  try{
+    const arr=JSON.parse(await API('cron-list'));
+    if(!arr.length){tb.innerHTML='<tr><td colspan="4" style="color:var(--fg-dim)">Пусто</td></tr>';return}
+    tb.innerHTML=arr.map(o=>{
+      const p=o.line.split(/\s+/),sched=p.slice(0,5).join(' '),user=p[5]||'',cmd=p.slice(6).join(' ');
+      return `<tr><td style="font-family:ui-monospace">${esc(sched)}</td><td>${esc(user)}</td><td style="font-family:ui-monospace">${esc(cmd)}</td><td><button class="btn-sm danger" data-line="${esc(o.line)}">Удалить</button></td></tr>`;
+    }).join('');
+    tb.querySelectorAll('button[data-line]').forEach(b=>b.onclick=async()=>{
+      if(confirm('Удалить задание?')){await API('cron-del',b.dataset.line);loadCron()}
+    });
+  }catch(e){tb.innerHTML=`<tr><td colspan="4" class="err">${esc(e.message)}</td></tr>`}
+}
+$('cron-refresh').onclick=loadCron;
+$('cron-add-btn').onclick=()=>{
+  const sched=prompt('Расписание (5 полей, например "0 3 * * *"):','0 3 * * *');
+  if(!sched)return;const cmd=prompt('Команда:','/opt/bin/echo hello');
+  if(!cmd)return;const user=prompt('Пользователь:','root')||'root';
+  API('cron-add',`${sched} ${user} ${cmd}`).then(loadCron);
+};
+
