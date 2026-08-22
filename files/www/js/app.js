@@ -155,3 +155,142 @@ $('cron-add-btn').onclick=()=>{
   API('cron-add',`${sched} ${user} ${cmd}`).then(loadCron);
 };
 
+// === WiFi ===
+async function loadWifi(){
+  const g=$('wifi-grid');
+  g.innerHTML='<div class="card"><div class="spinner"></div></div>';
+  try{
+    const arr=JSON.parse(await API('wifi-list'));
+    if(!arr.length){
+      g.innerHTML='<div class="card">WiFi-интерфейсы не найдены</div>';
+      return;
+    }
+    g.innerHTML=arr.map(v=>{
+      const up=v.state==='up';
+      return `<div class="card">
+        <div class="card-title">${esc(v.label)} <span style="color:var(--fg-dim);font-weight:400;text-transform:none">${esc(v.key)}</span></div>
+        <div class="card-value" style="font-size:18px">${esc(v.ssid||'—')}</div>
+        <div style="margin-top:10px;color:var(--fg-dim);font-size:12px;line-height:1.8">
+          Статус: <span class="badge ${up?'ok':'err'}">${esc(v.state||'—')}</span><br>
+          Канал: <b>${esc(v.channel||'—')}</b>${v.bandwidth?' / '+esc(v.bandwidth)+' МГц':''}<br>
+          Защита: ${esc(v.encryption||'—')}<br>
+          ${v.temperature?'Темп: '+esc(v.temperature)+'°C<br>':''}
+        </div>
+        <div class="actions" style="margin-top:12px">
+          <button class="btn-sm" data-act="ssid" data-if="${esc(v.key)}" data-val="${esc(v.ssid||'')}">SSID</button>
+          <button class="btn-sm" data-act="pwd" data-if="${esc(v.key)}">Пароль</button>
+          <button class="btn-sm ${up?'danger':'ok'}" data-act="toggle" data-if="${esc(v.key)}" data-up="${up}">${up?'Выключить':'Включить'}</button>
+        </div>
+      </div>`;
+    }).join('');
+    g.querySelectorAll('button[data-act]').forEach(b=>b.onclick=async()=>{
+      if(b.dataset.act==='ssid'){
+        const nv=prompt('Новый SSID:',b.dataset.val);
+        if(nv){await API('wifi-ssid',b.dataset.if,nv);setTimeout(loadWifi,1500)}
+      }
+      if(b.dataset.act==='pwd'){
+        const nv=prompt('Новый пароль (мин. 8 символов):');
+        if(nv&&nv.length>=8){await API('wifi-password',b.dataset.if,nv);alert('Отправлено');setTimeout(loadWifi,2000)}
+      }
+      if(b.dataset.act==='toggle'){
+        const action=b.dataset.up==='true'?'wifi-down':'wifi-up';
+        await API(action,b.dataset.if);
+        setTimeout(loadWifi,1500);
+      }
+    });
+  }catch(e){
+    g.innerHTML=`<div class="card"><div class="card-value err">${esc(e.message)}</div></div>`;
+  }
+}
+$('wifi-refresh').onclick=loadWifi;
+window.editSsid=async(iface,old)=>{const v=prompt('Новый SSID:',old);if(v)await API('wifi-ssid',iface,v).then(loadWifi)};
+window.editWifiPwd=async(iface)=>{const v=prompt('Новый пароль (мин. 8 символов):');if(v&&v.length>=8)await API('wifi-password',iface,v)};
+
+async function loadDns(){
+  const tb=$('dns-table').querySelector('tbody');
+  tb.innerHTML='<tr><td colspan="4"><div class="spinner"></div></td></tr>';
+  try{
+    const r=JSON.parse(await API('dns-list'));
+    const srv=r.servers||[];
+    if(!srv.length){tb.innerHTML='<tr><td colspan="4" style="color:var(--fg-dim)">Нет DNS-серверов</td></tr>';return}
+    tb.innerHTML=srv.map(s=>{
+      // Источник: Dhcp::Client-X → DHCP от X; статический → Static
+      const svc=s.service||'';
+      const isDhcp=svc.startsWith('Dhcp::');
+      const src=isDhcp?'DHCP':'Static';
+      const srcCls=isDhcp?'info':'ok';
+      // Меняем "Dhcp::Client-GigabitEthernet1" на "GigabitEthernet1"
+      const srcDisp=isDhcp?svc.replace(/^Dhcp::Client-/,''):'вручную';
+      const canDelete=!isDhcp;
+      return `<tr>
+        <td><b>${esc(s.address)}</b></td>
+        <td>${esc(srcDisp)}</td>
+        <td><span class="badge ${srcCls}">${src}</span></td>
+        <td>${canDelete?`<button class="btn-sm danger" data-addr="${esc(s.address)}">Удалить</button>`:'<span style="color:var(--fg-dim);font-size:11px">только для чтения</span>'}</td>
+      </tr>`;
+    }).join('');
+    tb.querySelectorAll('button[data-addr]').forEach(b=>b.onclick=async()=>{
+      if(!confirm('Удалить '+b.dataset.addr+'?'))return;
+      await API('dns-remove',b.dataset.addr);
+      setTimeout(loadDns,1000);
+    });
+  }catch(e){tb.innerHTML=`<tr><td colspan="4" class="err">${esc(e.message)}</td></tr>`}
+}
+$('dns-refresh').onclick=loadDns;
+$('dns-add-btn').onclick=async()=>{
+  const v=$('dns-new').value.trim();
+  if(!v){alert('Введите IP');return}
+  if(!/^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(v)){alert('Неверный IP');return}
+  const r=await API('dns-add',v);
+  try{
+    const p=JSON.parse(r);
+    const st=p.parse?.status?.[0];
+    if(st && st.status==='error'){alert('Ошибка: '+st.message);return}
+  }catch{}
+  $('dns-new').value='';
+  setTimeout(loadDns,1500);
+};
+
+
+// === DHCP ===
+async function loadDhcp(){
+  const tb=$('dhcp-table').querySelector('tbody');
+  tb.innerHTML='<tr><td colspan="8"><div class="spinner"></div></td></tr>';
+  try{
+    const r=await API('dhcp-get');let d=JSON.parse(r);
+    // структура: {_WEBADMIN: {interface,network,begin,end,router,lease,state,size,used}, ...}
+    const items=[];
+    for(const [k,v] of Object.entries(d)){
+      if(v && typeof v==='object' && (v.network||v.begin||v.end)){
+        items.push([k,v]);
+      }
+    }
+    if(!items.length){
+      // fallback — плоский вывод
+      tb.innerHTML=`<tr><td colspan="8" style="color:var(--fg-dim)">Пулы не найдены</td></tr>`;
+      return;
+    }
+    tb.innerHTML=items.map(([k,v])=>{
+      const iface=v.interface?.interface||v.interface?.binding||'—';
+      const net=v.network||'—';
+      const range=`${v.begin||'—'} — ${v.end||'—'}`;
+      const gw=v.router?.router||v.router||'—';
+      const lease=v.lease?.lease||v.lease||'—';
+      const state=v.state||'—';
+      const used=v.used!=null&&v.size!=null?`${v.used} / ${v.size}`:'—';
+      const stCls=state==='running'?'ok':(state==='down'?'err':'warn');
+      return `<tr>
+        <td><b>${esc(k)}</b></td>
+        <td>${esc(iface)}</td>
+        <td>${esc(net)}</td>
+        <td style="font-family:ui-monospace;font-size:12px">${esc(range)}</td>
+        <td>${esc(gw)}</td>
+        <td>${esc(fmtLease(lease))}</td>
+        <td><span class="badge ${stCls}">${esc(state)}</span></td>
+        <td class="num">${esc(used)}</td>
+      </tr>`;
+    }).join('');
+  }catch(e){tb.innerHTML=`<tr><td colspan="8" class="err">${esc(e.message)}</td></tr>`}
+}
+$('dhcp-refresh').onclick=loadDhcp;
+
