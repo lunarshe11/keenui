@@ -294,3 +294,102 @@ async function loadDhcp(){
 }
 $('dhcp-refresh').onclick=loadDhcp;
 
+// === Клиенты ===
+let clientsCache=[];
+async function loadClients(){
+  const tb=$('clients-table').querySelector('tbody');tb.innerHTML='<tr><td colspan="5"><div class="spinner"></div></td></tr>';
+  try{
+    const r=await API('clients');let d=JSON.parse(r);
+    let arr=[];
+    if(Array.isArray(d)) arr=d;
+    else if(d['ip/hotspot/host']) arr=Array.isArray(d['ip/hotspot/host'])?d['ip/hotspot/host']:Object.values(d['ip/hotspot/host']);
+    else if(d.host) arr=Array.isArray(d.host)?d.host:Object.values(d.host);
+    else if(d.hosts) arr=Array.isArray(d.hosts)?d.hosts:Object.values(d.hosts);
+    else arr=Object.entries(d).filter(([k,v])=>v&&typeof v==='object').map(([k,v])=>({...v,mac:k}));
+    clientsCache=arr;
+    renderClients(arr);
+  }catch(e){tb.innerHTML=`<tr><td colspan="5" class="err">${esc(e.message)}</td></tr>`}
+}
+function renderClients(arr){
+  const tb=$('clients-table').querySelector('tbody');
+  // Дедуп по MAC, предпочитаем запись с реальным IP
+  const byMac=new Map();
+  for(const h of arr){
+    const mac=(h.mac||'').toLowerCase();
+    if(!mac)continue;
+    const ip=h.ip||'';
+    const cur=byMac.get(mac);
+    if(!cur || (ip && ip!=='0.0.0.0' && (!cur.ip || cur.ip==='0.0.0.0'))){
+      byMac.set(mac,h);
+    }
+  }
+  // Фильтр: только с IP или активные
+  let list=Array.from(byMac.values()).filter(h=>{
+    const ip=h.ip||'';
+    return (ip && ip!=='0.0.0.0') || h.active===true;
+  });
+  // Сортировка: online вверх, потом по IP
+  list.sort((a,b)=>{
+    const aa=a.active===true||a.link==='up'?0:1;
+    const bb=b.active===true||b.link==='up'?0:1;
+    if(aa!==bb)return aa-bb;
+    return (a.ip||'').localeCompare(b.ip||'');
+  });
+  if(!list.length){tb.innerHTML='<tr><td colspan="7" style="color:var(--fg-dim)">Нет активных клиентов</td></tr>';return}
+  // Сокращаем длинные имена: "realme-16-5G - Основная - 2026-08-31 10:57" → "realme-16-5G"
+  const shortName=n=>{
+    if(!n)return'—';
+    const i=n.indexOf(' - ');
+    return i>0 ? n.substring(0,i) : n;
+  };
+  tb.innerHTML=list.map(h=>{
+    const mac=h.mac||'';
+    const ip=h.ip||'';
+    const name=shortName(h.name||h.hostname);
+    const active=h.active===true||h.link==='up';
+    const rx=h.rxbytes||0, tx=h.txbytes||0;
+    const last=h['last-seen']!=null?(h['last-seen']<60?h['last-seen']+' с':Math.floor(h['last-seen']/60)+' мин'):'—';
+    const ssid=h.ssid||'—';
+    const access=h.access||'permit';
+    const blocked=access==='deny';
+    return `<tr>
+      <td><b>${esc(ip||'—')}</b></td>
+      <td>${esc(name)}${blocked?' <span class="badge err" style="font-size:10px">blocked</span>':''}</td>
+      <td style="font-size:11px">${esc(mac)}</td>
+      <td><span class="badge ${active?'ok':'err'}">${active?'online':'offline'}</span></td>
+      <td style="font-size:11px;color:var(--fg-dim)">${esc(ssid)}<br>↓${fmtBytes(rx)} ↑${fmtBytes(tx)}</td>
+      <td style="font-size:11px">${esc(last)}</td>
+      <td><div class="actions">
+        <button class="btn-sm" data-act="rename" data-mac="${esc(mac)}" data-name="${esc(h.name||'')}">Имя</button>
+        <button class="btn-sm" data-act="static" data-mac="${esc(mac)}" data-ip="${esc(ip)}">Static</button>
+        <button class="btn-sm" data-act="wol" data-mac="${esc(mac)}">WOL</button>
+        <button class="btn-sm ${blocked?'ok':'danger'}" data-act="${blocked?'unblock':'block'}" data-mac="${esc(mac)}">${blocked?'Unblock':'Block'}</button>
+      </div></td></tr>`;
+  }).join('');
+  tb.querySelectorAll('button[data-act]').forEach(b=>b.onclick=()=>clientAction(b.dataset));
+}
+async function clientAction(d){
+  if(!d.mac){alert('MAC неизвестен');return}
+  if(d.act==='rename'){
+    const n=prompt('Новое имя:',d.name||'');
+    if(n){
+      const r=await API('client-rename',d.mac,n);
+      try{
+        const p=JSON.parse(r);
+        const st=p.parse?.status?.[0];
+        if(st && st.status==='error'){alert('Ошибка: '+st.message);return}
+      }catch{}
+      setTimeout(loadClients,1500);
+    }
+  }
+  if(d.act==='static'){
+    const ip=prompt('IP адрес:',d.ip||'');
+    if(ip){await API('client-static',d.mac,ip);setTimeout(loadClients,1500)}
+  }
+  if(d.act==='wol'){await API('client-wol',d.mac);alert('WOL отправлен')}
+  if(d.act==='block'){if(confirm('Заблокировать?')){await API('client-block',d.mac);setTimeout(loadClients,1500)}}
+  if(d.act==='unblock'){await API('client-unblock',d.mac);setTimeout(loadClients,1500)}
+}
+$('clients-refresh').onclick=loadClients;
+$('clients-search').oninput=e=>{const q=e.target.value.toLowerCase();renderClients(clientsCache.filter(h=>JSON.stringify(h).toLowerCase().includes(q)))};
+
