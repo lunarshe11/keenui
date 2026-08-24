@@ -393,3 +393,91 @@ async function clientAction(d){
 $('clients-refresh').onclick=loadClients;
 $('clients-search').oninput=e=>{const q=e.target.value.toLowerCase();renderClients(clientsCache.filter(h=>JSON.stringify(h).toLowerCase().includes(q)))};
 
+// === Компоненты ===
+async function loadComp(){
+  const tb=$('comp-table').querySelector('tbody');
+  tb.innerHTML='<tr><td colspan="5"><div class="spinner"></div></td></tr>';
+  try{
+    const r=JSON.parse(await API('components-list'));
+    const arr=r.components||[];
+    const inst=arr.filter(c=>c.installed).length;
+    $('comp-info').textContent=`Установлено ${inst} из ${arr.length}`;
+
+    // фильтр по группам + чекбокс "только установленные"
+    if(!window._compFilter){
+      window._compFilter={group:'',installed:false,search:''};
+    }
+    const f=window._compFilter;
+    const groups=[...new Set(arr.map(c=>c.group).filter(Boolean))].sort();
+
+    let list=arr.filter(c=>{
+      if(f.group && c.group!==f.group)return false;
+      if(f.installed && !c.installed)return false;
+      if(f.search){
+        const q=f.search.toLowerCase();
+        if(!(c.name.toLowerCase().includes(q)||(c.description||'').toLowerCase().includes(q)))return false;
+      }
+      return true;
+    });
+
+    // Заголовок с фильтрами
+    const header=document.querySelector('#tab-components .toolbar');
+    if(header && !header.dataset.hasFilters){
+      header.dataset.hasFilters='1';
+      header.innerHTML=`
+        <button id="comp-refresh">Обновить</button>
+        <span id="comp-info" class="badge info">—</span>
+        <input id="comp-search" placeholder="Поиск по имени" style="max-width:220px">
+        <select id="comp-group"><option value="">Все группы</option>${groups.map(g=>`<option value="${esc(g)}">${esc(g)}</option>`).join('')}</select>
+        <label style="display:flex;align-items:center;gap:6px;color:var(--fg-dim);font-size:13px">
+          <input type="checkbox" id="comp-only-inst"> только установленные
+        </label>
+      `;
+      document.getElementById('comp-refresh').onclick=loadComp;
+      document.getElementById('comp-search').oninput=e=>{window._compFilter.search=e.target.value;loadComp()};
+      document.getElementById('comp-group').onchange=e=>{window._compFilter.group=e.target.value;loadComp()};
+      document.getElementById('comp-only-inst').onchange=e=>{window._compFilter.installed=e.target.checked;loadComp()};
+      document.getElementById('comp-search').value=f.search;
+      document.getElementById('comp-group').value=f.group;
+      document.getElementById('comp-only-inst').checked=f.installed;
+      $('comp-info').textContent=`Установлено ${inst} из ${arr.length}`;
+    }
+
+    if(!list.length){tb.innerHTML='<tr><td colspan="5" style="color:var(--fg-dim)">Ничего не найдено</td></tr>';return}
+
+    tb.innerHTML=list.map(c=>{
+      const inst=c.installed;
+      const st=inst?'installed':'available';
+      const stCls=inst?'ok':'info';
+      const sizeKb=Math.round(parseInt(c.size||0)/1024);
+      const action=inst
+        ?`<button class="btn-sm danger" data-act="remove" data-name="${esc(c.name)}">Удалить</button>`
+        :`<button class="btn-sm ok" data-act="install" data-name="${esc(c.name)}">Установить</button>`;
+      return `<tr>
+        <td><b>${esc(c.name)}</b><div style="font-size:10px;color:var(--fg-dim)">${esc(c.group||'')}</div></td>
+        <td style="font-size:12px">${esc(c.description||'—')}</td>
+        <td style="font-size:11px">${esc(c.version||'—')}${inst?'<br><span style="color:var(--ok)">'+esc(c.installed_version)+'</span>':''}</td>
+        <td><span class="badge ${stCls}">${st}</span>${c.queued?' <span class="badge warn" style="font-size:10px">queued</span>':''}</td>
+        <td>${action}</td>
+      </tr>`;
+    }).join('');
+
+    tb.querySelectorAll('button[data-act]').forEach(b=>b.onclick=async()=>{
+      const act=b.dataset.act,name=b.dataset.name;
+      const msg=act==='install'?`Установить "${name}"?`:`Удалить "${name}"?`;
+      if(!confirm(msg))return;
+      b.disabled=true;b.textContent='...';
+      await API('components-'+act,name);
+      const commit=confirm('Применить изменения сейчас (commit + reboot)?\n\nOK — применить и перезагрузить\nCancel — только запомнить');
+      if(commit){
+        await API('components-commit');
+        alert('Роутер перезагрузится через 5 секунд');
+        await API('parse','system reboot');
+      } else {
+        loadComp();
+      }
+    });
+  }catch(e){tb.innerHTML=`<tr><td colspan="5" class="err">${esc(e.message)}</td></tr>`}
+}
+$('comp-refresh').onclick=loadComp;
+
