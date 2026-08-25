@@ -481,3 +481,119 @@ async function loadComp(){
 }
 $('comp-refresh').onclick=loadComp;
 
+// === USB ===
+async function loadUsb(){
+  const g=$('usb-grid');g.innerHTML='<div class="card"><div class="spinner"></div></div>';
+  try{
+    const r=await API('usb-list');let d=JSON.parse(r);
+    const arr=[];
+    const root=d.usb||d.device||d;
+    if(Array.isArray(root)) arr.push(...root);
+    else if(root&&typeof root==='object'){
+      for(const [k,v] of Object.entries(root)){
+        if(v&&typeof v==='object') arr.push({id:k,...v});
+      }
+    }
+    if(!arr.length){g.innerHTML='<div class="card">USB-устройства не найдены</div>';return}
+    g.innerHTML=arr.map(u=>{
+      const name=u.id||u.name||u.model||'—';
+      const vendor=u.vendor||u.manufacturer||'';
+      const size=u.size||u.capacity||'';
+      return `<div class="card">
+        <div class="card-title">${esc(name)}</div>
+        <div class="card-value" style="font-size:14px">${esc(vendor)}</div>
+        <div style="margin-top:8px;color:var(--fg-dim);font-size:12px">
+          ${size?'Объём: '+esc(fmtBytes(Number(size)))+'<br>':''}
+          ${u.type?'Тип: '+esc(u.type)+'<br>':''}
+          ${u.state?'Состояние: '+esc(u.state):''}
+        </div>
+      </div>`;
+    }).join('');
+  }catch(e){g.innerHTML=`<div class="card"><div class="card-value err">${esc(e.message)}</div></div>`}
+}
+$('usb-refresh').onclick=loadUsb;
+
+// === Проводник ===
+let currentPath='/opt';
+async function loadBrowse(p){
+  currentPath=p||currentPath||'/opt';
+  const tb=$('browse-table').querySelector('tbody');
+  tb.innerHTML='<tr><td colspan="5"><div class="spinner"></div></td></tr>';
+  try{
+    if(/^\/(proc|sys|dev)(\/|$)/.test(currentPath)){
+      tb.innerHTML='<tr><td colspan="5" style="color:var(--fg-dim)">Служебная ФС — скрыта</td></tr>';
+      renderBreadcrumb(currentPath);
+      return;
+    }
+    const arr=JSON.parse(await API('media-browse',currentPath));
+    renderBreadcrumb(currentPath);
+    if(!arr.length){tb.innerHTML='<tr><td colspan="5" style="color:var(--fg-dim)">Пустая папка</td></tr>';return}
+    arr.sort((a,b)=>{
+      const ad=(a.type==='dir'||a.type==='link')?0:1;
+      const bd=(b.type==='dir'||b.type==='link')?0:1;
+      return (ad-bd)||a.name.localeCompare(b.name);
+    });
+    tb.innerHTML=arr.map(f=>{
+      const isDir=f.type==='dir';
+      const isLink=f.type==='link';
+      const icon=isDir?'📁':(isLink?'🔗':(f.name.match(/\.(png|jpg|jpeg|gif|webp)$/i)?'🖼️':(f.name.match(/\.(mp4|mkv|avi|mov)$/i)?'🎬':(f.name.match(/\.(mp3|flac|wav|ogg)$/i)?'🎵':(f.name.match(/\.(zip|tar|gz|7z|rar)$/i)?'📦':(f.name.match(/\.(sh|py|js|json|conf|log|txt|md)$/i)?'📝':'📄'))))));
+      const full=(currentPath.replace(/\/$/,'')||'')+'/'+f.name;
+      const isWritable=currentPath.startsWith('/opt')||currentPath.startsWith('/tmp');
+      const actions=(isDir||isLink)
+        ?`<button class="btn-sm" data-act="open" data-path="${esc(full)}">Открыть</button>
+          ${isWritable?`<button class="btn-sm danger" data-act="del" data-path="${esc(full)}" data-name="${esc(f.name)}">Удалить</button>
+          <button class="btn-sm" data-act="ren" data-path="${esc(full)}" data-name="${esc(f.name)}">Переименовать</button>`:''}`
+        :`<button class="btn-sm" data-act="dl" data-path="${esc(full)}">Скачать</button>
+          ${isWritable?`<button class="btn-sm danger" data-act="del" data-path="${esc(full)}" data-name="${esc(f.name)}">Удалить</button>
+          <button class="btn-sm" data-act="ren" data-path="${esc(full)}" data-name="${esc(f.name)}">Переименовать</button>`:''}`;
+      return `<tr class="browse-row" data-type="${esc(f.type)}" data-path="${esc(full)}">
+        <td class="browse-name" style="cursor:pointer">${icon} ${esc(f.name)}</td>
+        <td style="font-size:11px;color:var(--fg-dim)">${esc(f.type)}</td>
+        <td class="num">${(isDir)?'—':fmtBytes(f.size)}</td>
+        <td style="font-size:11px;color:var(--fg-dim)">${esc(f.mode)}</td>
+        <td><div class="actions">${actions}</div></td>
+      </tr>`;
+    }).join('');
+    // Обработчики кнопок
+    tb.querySelectorAll('button[data-act]').forEach(b=>b.onclick=ev=>{
+      ev.stopPropagation();
+      const d=b.dataset;
+      if(d.act==='open')loadBrowse(d.path);
+      if(d.act==='dl')window.open('/cgi-bin/file?path='+encodeURIComponent(d.path),'_blank');
+      if(d.act==='del'){
+        if(confirm('Удалить "'+d.name+'"?')){
+          API('file-delete',d.path).then(r=>{
+            try{const p=JSON.parse(r);if(p.error){alert('Ошибка: '+p.error);return}}catch{}
+            loadBrowse();
+          });
+        }
+      }
+      if(d.act==='ren'){
+        const nn=prompt('Новое имя:',d.name);
+        if(nn && nn!==d.name){
+          API('file-rename',d.path,nn).then(r=>{
+            try{const p=JSON.parse(r);if(p.error){alert('Ошибка: '+p.error);return}}catch{}
+            loadBrowse();
+          });
+        }
+      }
+    });
+    // Клик по имени файла/папки
+    tb.querySelectorAll('.browse-name').forEach(td=>td.onclick=()=>{
+      const row=td.closest('tr');
+      const t=row.dataset.type;
+      if(t==='dir'||t==='link'){loadBrowse(row.dataset.path)}
+      else{window.open('/cgi-bin/file?path='+encodeURIComponent(row.dataset.path),'_blank')}
+    });
+  }catch(e){tb.innerHTML=`<tr><td colspan="5" class="err">${esc(e.message)}</td></tr>`}
+}
+function renderBreadcrumb(path){
+  const parts=path.split('/').filter(Boolean);
+  let acc='';const items=['<a data-path="/">/</a>'];
+  parts.forEach(p=>{acc+='/'+p;items.push(`<a data-path="${esc(acc)}">${esc(p)}</a>`)});
+  const bc=$('browse-breadcrumb');
+  bc.innerHTML=items.join('<span style="color:var(--fg-dim)">›</span>');
+  bc.querySelectorAll('a').forEach(a=>a.onclick=()=>loadBrowse(a.dataset.path));
+}
+
+
