@@ -597,3 +597,104 @@ function renderBreadcrumb(path){
 }
 
 
+// === NextDNS ===
+async function loadNextdns(){
+  const cards=$('nextdns-cards');
+  cards.innerHTML='<div class="card"><div class="spinner"></div></div>';
+  try{
+    const a=JSON.parse(await API('nextdns-active'));
+    const p=JSON.parse(await API('nextdns-profiles'));
+
+    // Статус
+    const st=$('nextdns-status');
+    st.textContent=a.enabled?'active':'disabled';
+    st.className='badge '+(a.enabled?'ok':'err');
+
+    // Кнопка
+    const btn=$('nextdns-toggle');
+    if(a.enabled){
+      btn.textContent='Отключить';
+      btn.className='danger';
+      btn.onclick=async()=>{
+        if(!confirm('Отключить NextDNS?'))return;
+        await API('nextdns-disable');
+        setTimeout(loadNextdns,1500);
+      };
+    } else {
+      btn.textContent='Включить';
+      btn.className='ok';
+      btn.onclick=async()=>{
+        await API('nextdns-enable');
+        setTimeout(loadNextdns,1500);
+      };
+    }
+
+    // Карточки
+    const id=a.id||'—';
+    const cardsArr=[
+      ['ID профиля', id||'—'],
+      ['Профилей активно', a.profiles.length],
+      ['Привязок MAC', a.bindings.length],
+      ['Серверов', a.servers.length]
+    ];
+    let html=cardsArr.map(([t,v])=>`<div class="card"><div class="card-title">${t}</div><div class="card-value">${esc(v)}</div></div>`).join('');
+
+    if(a.id){
+      html+=`<div class="card" style="grid-column:span 2">
+        <div class="card-title">Профиль NextDNS</div>
+        <div class="card-value" style="font-size:14px">@${esc(a.id)}</div>
+        <div style="margin-top:10px">
+          <a href="https://my.nextdns.io/${esc(a.id)}/setup" target="_blank" class="btn-sm" style="text-decoration:none;display:inline-block">Открыть на nextdns.io ↗</a>
+        </div>
+      </div>`;
+    }
+    if(a.servers.length){
+      html+=`<div class="card" style="grid-column:span 2">
+        <div class="card-title">Серверы</div>
+        <div class="card-value" style="font-size:13px;font-family:ui-monospace">${a.servers.map(s=>esc(s)).join('<br>')}</div>
+      </div>`;
+    }
+    if(a.profiles.length){
+      html+=`<div class="card" style="grid-column:span 2">
+        <div class="card-title">Активные профили</div>
+        <div style="font-size:13px;line-height:1.8">${a.profiles.map(pr=>`
+          <div style="margin-bottom:8px">
+            <b>Профиль ${esc(pr.id)}</b> <span class="badge info" style="font-size:11px">${esc(pr.type)}</span><br>
+            <span style="color:var(--fg-dim);font-size:11px">Option IDs: ${esc(pr.options.join(', ')||'—')}</span>
+          </div>
+        `).join('')}</div>
+      </div>`;
+    }
+    cards.innerHTML=html;
+
+    // Профили в системе
+    const saved=p.parse?.profiles?.profile||{};
+    const tb1=$('nextdns-profiles').querySelector('tbody');
+    const sp=Object.entries(saved);
+    if(!sp.length){
+      tb1.innerHTML='<tr><td colspan="3" style="color:var(--fg-dim)">Нет сохранённых профилей</td></tr>';
+    } else {
+      tb1.innerHTML=sp.map(([name,v])=>`<tr>
+        <td><b>${esc(name)}</b></td>
+        <td style="font-family:ui-monospace">${esc(v.token||'—')}</td>
+        <td>${v['profile-url']?`<a href="${esc(v['profile-url'])}" target="_blank" style="color:var(--accent)">${esc(v['profile-url'])} ↗</a>`:'—'}</td>
+      </tr>`).join('');
+    }
+
+    // Привязки
+    const tb2=$('nextdns-bindings').querySelector('tbody');
+    if(!a.bindings.length){
+      tb2.innerHTML='<tr><td colspan="2" style="color:var(--fg-dim)">Нет привязок</td></tr>';
+    } else {
+      tb2.innerHTML=a.bindings.map(b=>`<tr>
+        <td style="font-family:ui-monospace">${esc(b.mac)}</td>
+        <td><span class="badge info">Профиль ${esc(b.profile)}</span></td>
+      </tr>`).join('');
+    }
+  }catch(e){
+    cards.innerHTML=`<div class="card"><div class="card-value err">${esc(e.message)}</div></div>`;
+  }
+}
+$('nextdns-refresh').onclick=loadNextdns;
+
+
