@@ -698,3 +698,143 @@ async function loadNextdns(){
 $('nextdns-refresh').onclick=loadNextdns;
 
 
+// === Дашборд (простой, автообновление 10с) ===
+let dashTimer=null;
+async function loadDash(){
+  const g=$('dash-grid');
+  if(!g.dataset.loaded){g.innerHTML='<div class="card"><div class="spinner"></div></div>';}
+  try{
+    const v=JSON.parse(await API('version'));
+    const sysRaw=await API('system');
+    let sys={};
+    try{const p=JSON.parse(sysRaw);sys=p.system||p}catch{}
+
+    // CPU temp из /sys/class/thermal
+    let cpuTemp='—';
+    try{
+      const r=await API('exec','cat /sys/class/thermal/thermal_zone0/temp');
+      const p=JSON.parse(r);
+      const t=parseInt((p.parse?.message||[])[0]||'0');
+      if(t>0)cpuTemp=Math.round(t/1000)+'°C';
+    }catch{}
+
+    // RAM
+    const mt=Number(sys.memtotal)||0;
+    const mf=Number(sys.memfree)||0;
+    const mc=Number(sys.memcache)||0;
+    const mb=Number(sys.membuffers)||0;
+    const used=mt-mf-mc-mb;
+    const memPct=mt?Math.round(used/mt*100):0;
+    const memUsedMB=Math.round(used/1024);
+    const memTotalMB=Math.round(mt/1024);
+
+    // Swap
+    const st=Number(sys.swaptotal)||0;
+    const sf=Number(sys.swapfree)||0;
+    const swapUsed=st-sf;
+    const swapPct=st?Math.round(swapUsed/st*100):0;
+
+    // Uptime
+    const upS=Number(sys.uptime)||0;
+    const d=Math.floor(upS/86400),h=Math.floor(upS%86400/3600),m=Math.floor(upS%3600/60);
+    const upStr=upS?(d?d+'д ':'')+h+'ч '+m+'м':'—';
+
+    // Соединения: active = conntotal - connfree
+    const ct=Number(sys.conntotal)||0;
+    const cf=Number(sys.connfree)||0;
+    const active=ct-cf;
+    const connStr=ct?active+' / '+ct:'—';
+
+    // CPU load
+    const cpuload=sys.cpuload!=null?sys.cpuload+'%':'—';
+
+    const cards=[
+      ['Модель', v.model||v.description||'—', ''],
+      ['Прошивка', v.title||'—', ''],
+      ['Uptime', upStr, ''],
+      ['RAM', `${memPct}% (${memUsedMB}/${memTotalMB} MB)`, memPct>85?'err':(memPct>70?'warn':'')],
+      ['Swap', st?`${swapPct}% (${Math.round(swapUsed/1024)} MB)`:'нет', swapPct>50?'warn':''],
+      ['CPU', cpuload, cpuload>90?'err':(cpuload>70?'warn':'')],
+      ['CPU temp', cpuTemp, ''],
+      ['Соединения', connStr, '']
+    ];
+    g.innerHTML=cards.map(([t,val,cls])=>`<div class="card"><div class="card-title">${t}</div><div class="card-value ${cls}">${esc(val)}</div></div>`).join('');
+    g.dataset.loaded='1';
+    const upd=$('dash-updated');
+    if(upd)upd.textContent='• '+new Date().toLocaleTimeString();
+  }catch(e){
+    g.innerHTML=`<div class="card"><div class="card-value err">${esc(e.message)}</div></div>`;
+  }
+}
+
+function startDashAuto(){
+  if(dashTimer)clearInterval(dashTimer);
+  dashTimer=setInterval(()=>{
+    if($('tab-dashboard')?.classList.contains('active'))loadDash();
+  },10000);
+}
+
+// === darkstat автообновление 10с ===
+let darkTimer=null;
+let darkCountdown=10;
+function startDarkAuto(){
+  if(darkTimer)clearInterval(darkTimer);
+  darkCountdown=10;
+  darkTimer=setInterval(()=>{
+    if(!$('tab-keen')?.classList.contains('active'))return;
+    if(!$('sub-darkstat')?.classList.contains('active'))return;
+    darkCountdown--;
+    const el=$('darkstat-timer');if(el)el.textContent=darkCountdown;
+    if(darkCountdown<=0){darkCountdown=10;loadDark();}
+  },1000);
+}
+
+// === RCI-консоль ===
+async function rciRun(cmd){
+  const out=$('rci-output');
+  if(!cmd)return;
+  out.textContent='> '+cmd+'\n...';
+  try{
+    const r=await API('rci',cmd);
+    try{out.textContent='> '+cmd+'\n\n'+JSON.stringify(JSON.parse(r),null,2)}
+    catch{out.textContent='> '+cmd+'\n\n'+r}
+  }catch(e){out.textContent='> '+cmd+'\n\nОшибка: '+e.message}
+}
+
+// === Логи ===
+async function loadLogs(){
+  const out=$('logs-output');
+  const sel=$('logs-select');
+  if(!sel.dataset.loaded){
+    try{
+      const r=JSON.parse(await API('logs-list'));
+      const arr=r.logs||[];
+      sel.innerHTML=arr.map(l=>`<option value="logs-file|${esc(l.path)}">${esc(l.name)} (${Math.round(l.size/1024)} KB)</option>`).join('');
+      sel.dataset.loaded='1';
+      if(!arr.length){out.textContent='(нет логов)';return}
+    }catch(e){out.textContent='Ошибка: '+e.message;return}
+  }
+  const val=sel.value||'';
+  out.textContent='загрузка...';
+  try{
+    let r;
+    if(val.startsWith('logs-file|')){
+      r=JSON.parse(await API('logs-file',val.slice(10)));
+    } else {
+      r=JSON.parse(await API(val));
+    }
+    if(r.error){out.textContent='Ошибка: '+r.error;return}
+    const lines=r.lines||[];
+    $('logs-count').textContent=lines.length;
+    out.textContent=lines.join('\n')||'(пусто)';
+    out.scrollTop=out.scrollHeight;
+  }catch(e){out.textContent='Ошибка: '+e.message}
+}
+
+
+
+loadDash();
+startDashAuto();
+startDarkAuto();
+
+
