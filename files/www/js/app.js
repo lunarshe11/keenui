@@ -838,3 +838,55 @@ startDashAuto();
 startDarkAuto();
 
 
+// === Обработчики инструментов ===
+if($('rci-send'))$('rci-send').onclick=()=>rciRun($('rci-input').value.trim());
+if($('rci-input'))$('rci-input').onkeydown=e=>{if(e.key==='Enter')rciRun(e.target.value.trim())};
+if($('rci-clear'))$('rci-clear').onclick=()=>{$('rci-output').textContent='—';$('rci-input').value=''};
+document.querySelectorAll('button[data-rci]').forEach(b=>b.onclick=()=>{$('rci-input').value=b.dataset.rci;rciRun(b.dataset.rci)});
+if($('logs-refresh'))$('logs-refresh').onclick=loadLogs;
+if($('logs-select'))$('logs-select').onchange=loadLogs;
+
+// === Смена стандартного пароля ===
+async function checkPwd(){
+  try{
+    const r=JSON.parse(await API('pwd-status'));
+    if(!r.changed){
+      setTimeout(()=>$('pwd-modal').classList.add('active'), 800);
+    }
+  }catch(e){}
+}
+
+async function savePwd(){
+  const p1=$('pwd-new').value;
+  const p2=$('pwd-confirm').value;
+  const err=$('pwd-error');
+  err.style.display='none';
+  if(p1.length<8){err.textContent='Пароль минимум 8 символов';err.style.display='block';return}
+  if(p1!==p2){err.textContent='Пароли не совпадают';err.style.display='block';return}
+  if(p1==='keenui'){err.textContent='Нельзя использовать стандартный пароль';err.style.display='block';return}
+  $('pwd-save').disabled=true;
+  $('pwd-save').textContent='Сохранение...';
+  try{
+    const r=JSON.parse(await API('pwd-change',p1));
+    if(r.status==='ok'){
+      alert('Пароль изменён! Браузер попросит войти заново.');
+      location.reload();
+    } else {
+      err.textContent=r.message||'Ошибка';
+      err.style.display='block';
+      $('pwd-save').disabled=false;
+      $('pwd-save').textContent='Сменить пароль';
+    }
+  }catch(e){
+    err.textContent='Ошибка: '+e.message;
+    err.style.display='block';
+    $('pwd-save').disabled=false;
+    $('pwd-save').textContent='Сменить пароль';
+  }
+}
+
+if($('pwd-save'))$('pwd-save').onclick=savePwd;
+if($('pwd-skip'))$('pwd-skip').onclick=()=>{$('pwd-modal').classList.remove('active')};
+if($('pwd-confirm'))$('pwd-confirm').onkeydown=e=>{if(e.key==='Enter')savePwd()};
+
+checkPwd();
