@@ -1,0 +1,61 @@
+#!/opt/bin/sh
+
+PROG=/opt/sbin/lighttpd
+CONF=/opt/etc/lighttpd/lighttpd.conf
+PIDFILE=/opt/var/run/lighttpd.pid
+LOGDIR=/opt/var/log/lighttpd
+
+start() {
+    echo -n " Starting lighttpd (Keen UI)... "
+    if [ -f "$PIDFILE" ] && kill -0 $(cat "$PIDFILE") 2>/dev/null; then
+        echo "already running"
+        return
+    fi
+    mkdir -p "$LOGDIR"
+    mkdir -p /opt/var/run
+    $PROG -f "$CONF"
+    sleep 2
+    PID=$(ps | grep lighttpd | grep -v grep | awk '{print $1}' | head -1)
+    if [ -n "$PID" ]; then
+        echo "$PID" > "$PIDFILE"
+        echo "done (pid $PID)"
+    else
+        echo "failed"
+        tail -5 "$LOGDIR/error.log" 2>/dev/null
+    fi
+}
+
+stop() {
+    echo -n " Stopping lighttpd... "
+    if [ -f "$PIDFILE" ]; then
+        kill $(cat "$PIDFILE") 2>/dev/null
+        rm -f "$PIDFILE"
+    else
+        killall lighttpd 2>/dev/null
+    fi
+    sleep 1
+    echo "done"
+}
+
+restart() {
+    stop
+    sleep 1
+    start
+}
+
+status() {
+    if ps | grep lighttpd | grep -v grep > /dev/null; then
+        PID=$(ps | grep lighttpd | grep -v grep | awk '{print $1}' | head -1)
+        echo "lighttpd is running (pid $PID)"
+    else
+        echo "lighttpd is stopped"
+    fi
+}
+
+case "$1" in
+    start)   start ;;
+    stop)    stop ;;
+    restart) restart ;;
+    status)  status ;;
+    *)       echo "Usage: $0 {start|stop|restart|status}" ;;
+esac
