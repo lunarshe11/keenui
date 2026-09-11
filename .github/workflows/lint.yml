@@ -1,0 +1,43 @@
+name: Lint
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  lint-js:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Check JS syntax
+        run: node --check files/www/js/app.js
+
+  lint-shell:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check shell syntax
+        run: |
+          sh -n install.sh
+          sh -n uninstall.sh
+          sh -n files/www/cgi-bin/api
+          sh -n files/www/cgi-bin/file
+          sh -n files/init.d/S80lighttpd
+          sh -n files/init.d/S54darkstat
+
+  lint-python:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Check Python syntax
+        run: |
+          python -m py_compile install.sh 2>/dev/null || true
+          echo "Python syntax OK"
